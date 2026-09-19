@@ -1,0 +1,107 @@
+import ConnectFour.*
+import zio.json.*
+import zio.test.*
+
+object ConnectFourSpec extends ZIOSpecDefault:
+  private def playAll(moves: List[(Int, Player)]): Either[String, Board] =
+    moves.foldLeft[Either[String, Board]](Right(Board.empty)):
+      case (board, (column, player)) => board.flatMap(_.play(column, player).map(_._1))
+
+  def spec = suite("ConnectFour")(
+    test("drops pieces to the lowest available row") {
+      val result = for
+        first <- Board.empty.play(3, Player.Jev)
+        second <- first._1.play(3, Player.Llm)
+      yield second
+      assertTrue(
+        result.toOption.exists(_._2 == 4),
+        result.toOption.exists(_._1.view(5)(3) == "jev"),
+        result.toOption.exists(_._1.view(4)(3) == "llm"),
+      )
+    },
+    test("rejects out of range and full columns") {
+      val full = playAll(List.fill(6)(0).zipWithIndex.map: (_, index) =>
+        0 -> (if index % 2 == 0 then Player.Jev else Player.Llm)
+      )
+      assertTrue(
+        Board.empty.play(-1, Player.Jev).isLeft,
+        Board.empty.play(7, Player.Jev).isLeft,
+        full.toOption.exists(_.play(0, Player.Jev).isLeft),
+        full.toOption.exists(!_.validColumns.contains(0)),
+      )
+    },
+    test("detects horizontal, vertical, and both diagonal wins") {
+      val horizontal = playAll(List(0, 1, 2, 3).map(_ -> Player.Jev))
+      val vertical = playAll(List.fill(4)(2 -> Player.Llm))
+      val rising = playAll(List(
+        0 -> Player.Jev,
+        1 -> Player.Llm, 1 -> Player.Jev,
+        2 -> Player.Llm, 2 -> Player.Llm, 2 -> Player.Jev,
+        3 -> Player.Llm, 3 -> Player.Llm, 3 -> Player.Llm, 3 -> Player.Jev,
+      ))
+      val falling = playAll(List(
+        3 -> Player.Jev,
+        2 -> Player.Llm, 2 -> Player.Jev,
+        1 -> Player.Llm, 1 -> Player.Llm, 1 -> Player.Jev,
+        0 -> Player.Llm, 0 -> Player.Llm, 0 -> Player.Llm, 0 -> Player.Jev,
+      ))
+      assertTrue(
+        horizontal.toOption.flatMap(_.winner).contains(Player.Jev),
+        vertical.toOption.flatMap(_.winner).contains(Player.Llm),
+        rising.toOption.flatMap(_.winner).contains(Player.Jev),
+        falling.toOption.flatMap(_.winner).contains(Player.Jev),
+      )
+    },
+    test("catalog contains the verified standard us-east-1 prices and SKUs") {
+      val maverick = BedrockModelCatalog.Llama4Maverick
+      val scout = BedrockModelCatalog.Llama4Scout
+      assertTrue(
+        BedrockModelCatalog.all.size == 8,
+        maverick.pricing.inputUsdPerMillion == BigDecimal("0.24"),
+        maverick.pricing.outputUsdPerMillion == BigDecimal("0.97"),
+        maverick.skus.contains(BedrockModelCatalog.PriceSku("JG52PDGZY6D7VPT9", "8BCTPZBR6YK9PVER")),
+        scout.pricing.inputUsdPerMillion == BigDecimal("0.17"),
+        scout.pricing.outputUsdPerMillion == BigDecimal("0.66"),
+        scout.skus.contains(BedrockModelCatalog.PriceSku("3NRMZNF7G8SFHU4N", "4MM3J6SFWQG77BS6")),
+        scout.pricing.estimateUsd(1000, 100) == BigDecimal("0.0002360000"),
+        BedrockModelCatalog.ClaudeHaiku45.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("1.00"), BigDecimal("5.00")),
+        BedrockModelCatalog.NovaMicro.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.035"), BigDecimal("0.14")),
+        BedrockModelCatalog.NovaMicro.skus.contains(BedrockModelCatalog.PriceSku("XAR69MSGZSU6FEM9", "YUSGHKDUPQRC75RK")),
+        BedrockModelCatalog.MistralLarge3.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.50"), BigDecimal("1.50")),
+        BedrockModelCatalog.MistralLarge3.skus.contains(BedrockModelCatalog.PriceSku("F6SEZYUB98SAU4VQ", "3BG26FXFTP3HQ6SM")),
+        BedrockModelCatalog.DeepSeekV32.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.62"), BigDecimal("1.85")),
+        BedrockModelCatalog.DeepSeekV32.skus.contains(BedrockModelCatalog.PriceSku("GKSCNNJ6M7WBX7C3", "KXUENRNPAKP78CD6")),
+        BedrockModelCatalog.Qwen332B.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.15"), BigDecimal("0.60")),
+        BedrockModelCatalog.Qwen332B.skus.contains(BedrockModelCatalog.PriceSku("5UQHJ7CFUZCUD9UX", "RA2QAWYCCM9R5BR6")),
+        BedrockModelCatalog.GptOss120B.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.15"), BigDecimal("0.60")),
+        BedrockModelCatalog.GptOss120B.skus.contains(BedrockModelCatalog.PriceSku("Q2U4FFKKTW34QVFG", "KGHQD8ZHB5468Z38")),
+        JevPricing.InputUsdPerMillion == BigDecimal("0.042"),
+        JevPricing.OutputUsdPerMillion == BigDecimal("0.00"),
+        JevPricing.pricing.estimateUsd(1000, 100) == BigDecimal("0.0000420000"),
+      )
+    },
+    test("serializes pricing and cost in a game snapshot") {
+      val model = BedrockModelCatalog.Llama4Maverick
+      val snapshot = GameSnapshot(
+        id = "game-1",
+        modelId = model.id,
+        modelLabel = model.label,
+        inputUsdPerMillion = model.pricing.inputUsdPerMillion,
+        outputUsdPerMillion = model.pricing.outputUsdPerMillion,
+        bedrockCostUsd = BigDecimal("0.000123"),
+        jevInputUsdPerMillion = JevPricing.InputUsdPerMillion,
+        jevOutputUsdPerMillion = JevPricing.OutputUsdPerMillion,
+        jevCostUsd = BigDecimal("0.000042"),
+        board = Board.empty.view,
+        status = GameStatus.Thinking,
+        currentPlayer = Some(Player.Jev),
+        winner = None,
+        moves = Vector.empty,
+        message = "Jev is thinking",
+        createdAtMs = 1L,
+        turnStartedAtMs = Some(1L),
+        finishedAtMs = None,
+      )
+      assertTrue(snapshot.toJson.fromJson[GameSnapshot] == Right(snapshot))
+    },
+  )
