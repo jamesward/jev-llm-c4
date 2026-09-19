@@ -46,10 +46,11 @@ object MoveChooser:
     private def chooseWithJev(board: Board): Task[Selection] =
       for
         apiKey <- env("TYPESAFE_API_KEY")
-        valid = board.validColumns
+        tactics = board.tacticalOptions(Player.Jev)
+        valid = tactics.map(_.column)
         criteria <- ZIO.fromEither(TypeSafeAI.ChoiceCriteria.fromContent(
-          valid.map: column =>
-            s"column_$column" -> (TypeSafeAI.Content(columnDescription(board, Player.Jev, column)): TypeSafeAI.Content | Null)
+          tactics.map: option =>
+            s"column_${option.column}" -> (TypeSafeAI.Content(tacticalDescription(option)): TypeSafeAI.Content | Null)
           .toMap
         )).mapError(IllegalArgumentException(_))
         state =
@@ -65,7 +66,10 @@ object MoveChooser:
           state,
           List(
             TypeSafeAI.QuestionId("move") -> TypeSafeAI.Question.Choice(
-              "Choose exactly one legal column. Prefer an immediate win, then block an immediate loss, then build connected threats near the center.",
+              "Choose exactly one legal column using the deterministic facts attached to each option. " +
+                "First take an immediate win. Otherwise prevent every immediate opponent win when possible. " +
+                "Avoid options that give the opponent an immediate winning reply when a safe option exists. " +
+                "Then prefer multiple future winning threats and central columns.",
               criteria,
             )
           ),
@@ -94,10 +98,9 @@ object MoveChooser:
     ): Task[Selection] =
       for
         apiKey <- env("AWS_BEARER_TOKEN_BEDROCK")
-        valid = board.validColumns
-        legalLandings = valid.flatMap: column =>
-          board.play(column, Player.Llm).toOption.map:
-            case (_, row) => s"column $column lands at row $row"
+        tactics = board.tacticalOptions(Player.Llm)
+        valid = tactics.map(_.column)
+        tacticalFacts = tactics.map(option => s"- ${tacticalDescription(option)}").mkString("\n")
         fullColumns = (0 until ConnectFour.Columns).filterNot(valid.contains)
         prompt =
           s"""You are the LLM player (L) in Connect Four against Jev (J). It is your turn.
@@ -112,11 +115,19 @@ object MoveChooser:
              |${board.promptView}
              |
              |Your legal options are exactly: ${valid.mkString(", ")}.
-             |Legal landing cells: ${legalLandings.mkString("; ")}.
              |Full columns that must not be selected: ${if fullColumns.isEmpty then "none" else fullColumns.mkString(", ")}.
-             |Choose one of the legal options. Prefer an immediate win, then block an immediate Jev win, then create threats near the center.
+             |
+             |Deterministic tactical analysis for every legal option:
+             |$tacticalFacts
+             |
+             |Decision priority:
+             |1. Take an immediate winning move if one exists.
+             |2. Otherwise, prevent every immediate Jev win when possible.
+             |3. Avoid any move that gives Jev an immediate winning reply when a safe move exists.
+             |4. Then prefer moves creating multiple future winning threats and controlling central columns.
+             |
              |Your only decision is the column. Respond with only one JSON object in this exact shape: {"column":3}
-             |Do not add any other fields, prose, or markdown fences.""".stripMargin
+             |The column must be one of the legal options above. Do not add any other fields, prose, or markdown fences.""".stripMargin
         result <- Bedrock.converse(Bedrock.RequestConfig(
           messages = List(Bedrock.Message.user(prompt)),
           system = "Play Connect Four accurately and return only the requested JSON object.",
@@ -163,11 +174,16 @@ object MoveChooser:
       if start < 0 || end < start then Left("response did not contain a JSON object")
       else text.substring(start, end + 1).fromJson[BedrockMove]
 
-    private def columnDescription(board: Board, player: Player, column: Int): String =
-      board.play(column, player).toOption match
-        case Some((next, _)) if next.winner.contains(player) => s"Column $column: an immediate winning move"
-        case _ if isImmediateWin(board, player.opponent, column) => s"Column $column: blocks an opponent winning lane"
-        case _ => s"Column $column: legal move, distance ${math.abs(3 - column)} from center"
-
-    private def isImmediateWin(board: Board, player: Player, column: Int): Boolean =
-      board.play(column, player).toOption.exists(_._1.winner.contains(player))
+    private def tacticalDescription(option: TacticalOption): String =
+      val opponentReplies =
+        if option.opponentWinningReplies.isEmpty then "none"
+        else option.opponentWinningReplies.mkString(", ")
+      val ownThreats =
+        if option.ownWinningThreats.isEmpty then "none"
+        else option.ownWinningThreats.mkString(", ")
+      s"column ${option.column} lands at row ${option.landingRow}; " +
+        s"wins immediately=${option.winsNow}; " +
+        s"blocks a current immediate opponent win=${option.blocksImmediateThreat}; " +
+        s"opponent immediate winning replies after this move=$opponentReplies; " +
+        s"your next-turn winning columns if still open=$ownThreats; " +
+        s"distance from center=${option.centerDistance}"

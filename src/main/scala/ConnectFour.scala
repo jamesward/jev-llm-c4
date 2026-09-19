@@ -15,6 +15,16 @@ object ConnectFour:
       case Jev => "Jev"
       case Llm => "LLM"
 
+  final case class TacticalOption(
+    column: Int,
+    landingRow: Int,
+    winsNow: Boolean,
+    blocksImmediateThreat: Boolean,
+    opponentWinningReplies: Vector[Int],
+    ownWinningThreats: Vector[Int],
+    centerDistance: Int,
+  )
+
   final case class Board private (cells: Vector[Vector[Option[Player]]]):
     def validColumns: Vector[Int] =
       (0 until Columns).filter(column => cells.head(column).isEmpty).toVector
@@ -27,6 +37,25 @@ object ConnectFour:
           case Some(row) =>
             val nextRow = cells(row).updated(column, Some(player))
             Right(Board(cells.updated(row, nextRow)) -> row)
+
+    def winningColumns(player: Player): Vector[Int] =
+      validColumns.filter: column =>
+        play(column, player).toOption.exists(_._1.winner.contains(player))
+
+    def tacticalOptions(player: Player): Vector[TacticalOption] =
+      val opponentThreats = winningColumns(player.opponent)
+      validColumns.flatMap: column =>
+        play(column, player).toOption.map:
+          case (next, row) =>
+            TacticalOption(
+              column = column,
+              landingRow = row,
+              winsNow = next.winner.contains(player),
+              blocksImmediateThreat = opponentThreats.contains(column),
+              opponentWinningReplies = next.winningColumns(player.opponent),
+              ownWinningThreats = next.winningColumns(player),
+              centerDistance = math.abs(3 - column),
+            )
 
     def winner: Option[Player] =
       val directions = Vector((0, 1), (1, 0), (1, 1), (1, -1))

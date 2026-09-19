@@ -52,6 +52,29 @@ object ConnectFourSpec extends ZIOSpecDefault:
         falling.toOption.flatMap(_.winner).contains(Player.Jev),
       )
     },
+    test("computes tactical facts for every legal column") {
+      val opponentThreat = playAll(List(
+        0 -> Player.Jev,
+        1 -> Player.Jev,
+        2 -> Player.Jev,
+      )).toOption.get
+      val defense = opponentThreat.tacticalOptions(Player.Llm)
+      val block = defense.find(_.column == 3)
+      val unsafe = defense.find(_.column == 4)
+
+      val ownThreat = playAll(List.fill(3)(2 -> Player.Llm)).toOption.get
+      val winning = ownThreat.tacticalOptions(Player.Llm).find(_.column == 2)
+
+      assertTrue(
+        defense.map(_.column) == opponentThreat.validColumns,
+        block.exists(_.blocksImmediateThreat),
+        block.exists(_.opponentWinningReplies.isEmpty),
+        block.exists(_.landingRow == 5),
+        unsafe.exists(_.opponentWinningReplies.contains(3)),
+        winning.exists(_.winsNow),
+        ownThreat.winningColumns(Player.Llm).contains(2),
+      )
+    },
     test("catalog contains the verified standard us-east-1 prices and SKUs") {
       val maverick = BedrockModelCatalog.Llama4Maverick
       val scout = BedrockModelCatalog.Llama4Scout
