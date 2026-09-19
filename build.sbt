@@ -5,8 +5,6 @@ scalaVersion := "3.9.0"
 
 Compile / mainClass := Some("Main")
 name := "jev-llm-connect-four"
-// Keep Heroku's Procfile path stable under sbt 2's hashed output layout.
-Universal / target := baseDirectory.value / "target" / "universal"
 
 libraryDependencies ++= Seq(
   "com.jamesward" %% "zio-bedrock-converse" % "0.1.1",

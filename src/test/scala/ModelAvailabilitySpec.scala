@@ -30,4 +30,15 @@ object ModelAvailabilitySpec extends ZIOSpecDefault:
         response.unavailableReason.contains("agreement failed"),
       )
     },
+    test("logs complete eviction identity and reason") {
+      val model = BedrockModelCatalog.ClaudeOpus5
+      val message = ModelAvailability.evictionLog(ModelAvailability.Hidden(model, "authorization=NOT_AUTHORIZED"))
+      assertTrue(
+        message.contains("evicted from startup catalog"),
+        message.contains(model.label),
+        message.contains(model.id),
+        message.contains(model.foundationModelId),
+        message.contains("authorization=NOT_AUTHORIZED"),
+      )
+    },
   )

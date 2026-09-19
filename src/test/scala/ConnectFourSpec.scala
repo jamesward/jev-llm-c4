@@ -56,7 +56,7 @@ object ConnectFourSpec extends ZIOSpecDefault:
       val maverick = BedrockModelCatalog.Llama4Maverick
       val scout = BedrockModelCatalog.Llama4Scout
       assertTrue(
-        BedrockModelCatalog.all.size == 8,
+        BedrockModelCatalog.all.size == 11,
         maverick.pricing.inputUsdPerMillion == BigDecimal("0.24"),
         maverick.pricing.outputUsdPerMillion == BigDecimal("0.97"),
         maverick.skus.contains(BedrockModelCatalog.PriceSku("JG52PDGZY6D7VPT9", "8BCTPZBR6YK9PVER")),
@@ -75,6 +75,12 @@ object ConnectFourSpec extends ZIOSpecDefault:
         BedrockModelCatalog.Qwen332B.skus.contains(BedrockModelCatalog.PriceSku("5UQHJ7CFUZCUD9UX", "RA2QAWYCCM9R5BR6")),
         BedrockModelCatalog.GptOss120B.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("0.15"), BigDecimal("0.60")),
         BedrockModelCatalog.GptOss120B.skus.contains(BedrockModelCatalog.PriceSku("Q2U4FFKKTW34QVFG", "KGHQD8ZHB5468Z38")),
+        BedrockModelCatalog.ClaudeOpus5.id == "global.anthropic.claude-opus-5",
+        BedrockModelCatalog.ClaudeOpus5.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("5.00"), BigDecimal("25.00")),
+        BedrockModelCatalog.ClaudeSonnet5.id == "global.anthropic.claude-sonnet-5",
+        BedrockModelCatalog.ClaudeSonnet5.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("2.00"), BigDecimal("10.00")),
+        BedrockModelCatalog.Gpt56Sol.id == "global.openai.gpt-5.6-sol",
+        BedrockModelCatalog.Gpt56Sol.pricing == BedrockModelCatalog.TokenPricing(BigDecimal("4.00"), BigDecimal("20.00")),
         JevPricing.InputUsdPerMillion == BigDecimal("0.042"),
         JevPricing.OutputUsdPerMillion == BigDecimal("0.00"),
         JevPricing.pricing.estimateUsd(1000, 100) == BigDecimal("0.0000420000"),

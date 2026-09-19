@@ -35,20 +35,16 @@ object Main extends ZIOAppDefault:
 
   private val serverLayer =
     ZLayer.fromZIO:
-      for
-        maybeHost <- ZIO.systemWith(_.env("HOST")).orDie
-        maybePort <- ZIO.systemWith(_.env("PORT")).orDie
-      yield Server.defaultWith(_.binding(
-        maybeHost.filter(_.nonEmpty).getOrElse("127.0.0.1"),
-        maybePort.flatMap(_.toIntOption).getOrElse(8080),
-      ))
+      ZIO.systemWith(_.env("PORT")).map: maybePort =>
+        maybePort.flatMap(_.toIntOption).fold(Server.default)(Server.defaultWithPort)
     .flatten
 
   def run =
-    Server.serve(routes).provide(
-      serverLayer,
-      Client.default,
-      ModelAvailability.live,
-      MoveChooser.live,
-      GameService.live,
-    )
+    RequiredEnvironment.validateLive.flatMap: _ =>
+      Server.serve(routes).provide(
+        serverLayer,
+        Client.default,
+        ModelAvailability.live,
+        MoveChooser.live,
+        GameService.live,
+      )

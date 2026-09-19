@@ -121,6 +121,36 @@ object BedrockModelCatalog:
     skus = Some(PriceSku("Q2U4FFKKTW34QVFG", "KGHQD8ZHB5468Z38")),
   )
 
+  val ClaudeOpus5: Model = Model(
+    label = "Anthropic Claude Opus 5",
+    id = "global.anthropic.claude-opus-5",
+    foundationModelId = "anthropic.claude-opus-5",
+    pricing = TokenPricing(BigDecimal("5.00"), BigDecimal("25.00")),
+    pricingBasis = "global standard",
+    pricingSource = "https://platform.claude.com/docs/en/about-claude/pricing",
+    modelCard = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html",
+  )
+
+  val ClaudeSonnet5: Model = Model(
+    label = "Anthropic Claude Sonnet 5",
+    id = "global.anthropic.claude-sonnet-5",
+    foundationModelId = "anthropic.claude-sonnet-5",
+    pricing = TokenPricing(BigDecimal("2.00"), BigDecimal("10.00")),
+    pricingBasis = "global standard",
+    pricingSource = "https://www.anthropic.com/claude/sonnet",
+    modelCard = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5.html",
+  )
+
+  val Gpt56Sol: Model = Model(
+    label = "OpenAI GPT-5.6 Sol",
+    id = "global.openai.gpt-5.6-sol",
+    foundationModelId = "openai.gpt-5.6-sol",
+    pricing = TokenPricing(BigDecimal("4.00"), BigDecimal("20.00")),
+    pricingBasis = "global standard, short context (≤272K input tokens)",
+    pricingSource = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-sol.html",
+    modelCard = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-56-sol.html",
+  )
+
   val all: Vector[Model] = Vector(
     Llama4Maverick,
     Llama4Scout,
@@ -130,6 +160,9 @@ object BedrockModelCatalog:
     DeepSeekV32,
     Qwen332B,
     GptOss120B,
+    ClaudeOpus5,
+    ClaudeSonnet5,
+    Gpt56Sol,
   )
 
   def find(id: String): Option[Model] = all.find(_.id == id)

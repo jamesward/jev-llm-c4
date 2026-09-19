@@ -42,6 +42,11 @@ object ModelAvailability:
     warning: Option[String],
   )
 
+  def evictionLog(hidden: Hidden): String =
+    s"Bedrock model evicted from startup catalog after availability failure: " +
+      s"label=${hidden.model.label}, runtimeId=${hidden.model.id}, " +
+      s"foundationId=${hidden.model.foundationModelId}, reason=${hidden.reason}"
+
   val allCatalog: ULayer[ModelAvailability] =
     ZLayer.succeed(Static(Snapshot(BedrockModelCatalog.all, Vector.empty, None)))
 
@@ -59,7 +64,7 @@ object ModelAvailability:
             ))
           case Some(key) => checkAll(client, key)
         _ <- ZIO.foreachDiscard(result.hidden): hidden =>
-          ZIO.logWarning(s"Bedrock model hidden at startup: ${hidden.model.label} (${hidden.model.id}): ${hidden.reason}")
+          ZIO.logWarning(evictionLog(hidden))
         _ <- ZIO.logInfo(
           s"Bedrock startup availability: ${result.available.size}/${BedrockModelCatalog.all.size} catalog models enabled"
         )
