@@ -70,6 +70,13 @@ object ConnectFour:
           r >= 0 && r < Rows && c >= 0 && c < Columns && cells(r)(c).contains(player)
       yield player).headOption
 
+    def symbolRows: Vector[Vector[String]] =
+      cells.map(_.map:
+        case Some(Player.Jev) => "J"
+        case Some(Player.Llm) => "L"
+        case None             => "."
+      )
+
     def isFull: Boolean = validColumns.isEmpty
 
     def view: Vector[Vector[String]] =
@@ -93,16 +100,22 @@ object ConnectFour:
   enum GameStatus derives JsonCodec:
     case Thinking, Won, Draw, Failed, Cancelled
 
+  enum MoveOutcome derives JsonCodec:
+    case Played, Rejected
+
   final case class MoveRecord(
     turn: Int,
     player: Player,
-    column: Int,
-    row: Int,
+    column: Option[Int],
+    row: Option[Int],
+    outcome: MoveOutcome,
     durationMs: Long,
     note: String,
     inputTokens: Int,
     outputTokens: Int,
     estimatedCostUsd: BigDecimal,
+    requestDetails: String = "",
+    responseDetails: String = "",
   ) derives JsonCodec
 
   final case class GameSnapshot(
@@ -124,6 +137,7 @@ object ConnectFour:
     createdAtMs: Long,
     turnStartedAtMs: Option[Long],
     finishedAtMs: Option[Long],
+    cachedReplay: Boolean = false,
   ) derives JsonCodec
 
   final case class StartGameRequest(

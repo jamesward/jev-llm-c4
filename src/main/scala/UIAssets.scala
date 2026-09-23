@@ -21,7 +21,7 @@ object UIAssets:
       |  var model = document.getElementById('model');
       |  var board = document.getElementById('board');
       |  var errorBox = document.getElementById('error');
-      |  var timer = null, clockFrame = null, game = null, previousMoveCount = 0;
+      |  var eventSource = null, clockFrame = null, game = null, previousMoveCount = 0, lastEventSequence = 0;
       |
       |  function esc(value) { return String(value).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
       |  function seconds(ms) { return (ms / 1000).toFixed(1) + 's'; }
@@ -48,18 +48,16 @@ object UIAssets:
       |      row.forEach(function(cell, columnIndex) {
       |        var slot = document.createElement('div');
       |        slot.className = 'slot aspect-square rounded-full p-[7%]';
-      |        var animate = newest && newest.row === rowIndex && newest.column === columnIndex ? ' drop' : '';
+      |        var animate = newest && newest.outcome === 'Played' && newest.row === rowIndex && newest.column === columnIndex ? ' drop' : '';
       |        slot.innerHTML = '<div class="piece-' + cell + animate + ' h-full w-full rounded-full"></div>';
       |        board.appendChild(slot);
       |      });
       |    });
       |    previousMoveCount = next.moves.length;
-      |    document.getElementById('status').textContent = next.message;
+      |    document.getElementById('status').textContent = (next.cachedReplay ? 'Cached replay · ' : '') + next.message;
       |    document.getElementById('model-label').textContent = next.modelLabel;
       |    document.getElementById('model-pricing').textContent = '$' + next.inputUsdPerMillion + ' input · $' + next.outputUsdPerMillion + ' output per 1M tokens';
-      |    document.getElementById('bedrock-cost').textContent = money(next.bedrockCostUsd);
-      |    document.getElementById('jev-cost').textContent = money(next.jevCostUsd);
-      |    document.getElementById('move-count').textContent = next.moves.length + (next.moves.length === 1 ? ' move' : ' moves');
+      |    document.getElementById('move-count').textContent = next.moves.length + (next.moves.length === 1 ? ' turn' : ' turns');
       |    document.getElementById('cancel').classList.toggle('hidden', next.status !== 'Thinking');
       |    document.getElementById('start').disabled = next.status === 'Thinking';
       |
@@ -70,21 +68,36 @@ object UIAssets:
       |      document.getElementById(name + '-card').classList.toggle('ring-indigo-400/50', active);
       |      var moves = next.moves.filter(function(m) { return m.player.toLowerCase() === name; });
       |      var total = moves.reduce(function(sum, m) { return sum + m.durationMs; }, 0);
+      |      var inputTokens = moves.reduce(function(sum, m) { return sum + m.inputTokens; }, 0);
+      |      var outputTokens = moves.reduce(function(sum, m) { return sum + m.outputTokens; }, 0);
       |      var cost = name === 'llm' ? next.bedrockCostUsd : next.jevCostUsd;
-      |      document.getElementById(name + '-time').textContent = moves.length + ' turns · ' + seconds(total) + ' · ' + money(cost);
+      |      document.getElementById(name + '-time').textContent = moves.length + ' turns · ' + seconds(total);
+      |      document.getElementById(name + '-usage').textContent = inputTokens + ' input · ' + outputTokens + ' output tokens';
+      |      document.getElementById(name + '-cost').textContent = money(cost);
       |    });
       |
       |    var history = document.getElementById('history');
       |    if (!next.moves.length) history.innerHTML = '<li class="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-slate-600">Waiting for the opening move…</li>';
       |    else history.innerHTML = next.moves.slice().reverse().map(function(m) {
       |      var jev = m.player === 'Jev';
-      |      var color = jev ? 'amber' : 'rose';
-      |      var tokens = m.inputTokens + m.outputTokens;
-      |      var usage = tokens ? tokens + ' tokens' : '';
-      |      if (tokens || Number(m.estimatedCostUsd) > 0) usage += (usage ? ' · ' : '') + money(m.estimatedCostUsd);
-      |      return '<li class="rounded-xl border border-white/5 bg-black/15 p-3">' +
-      |        '<div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2"><span class="h-3 w-3 rounded-full piece-' + (jev ? 'jev' : 'llm') + '"></span><strong class="text-sm">' + esc(m.player) + '</strong><span class="text-xs text-slate-600">#' + m.turn + '</span></div><span class="font-mono text-sm font-bold text-' + color + '-300">' + seconds(m.durationMs) + '</span></div>' +
-      |        '<p class="mt-1 text-xs text-slate-400">Column ' + m.column + ' · row ' + m.row + '</p><p class="mt-1 line-clamp-3 text-xs text-slate-500">' + esc(m.note) + '</p><div class="mt-1 text-[10px] text-slate-600">' + usage + '</div></li>';
+      |      var rejected = m.outcome === 'Rejected';
+      |      var color = rejected ? 'red' : (jev ? 'amber' : 'rose');
+      |      var usage = [];
+      |      if (m.inputTokens) usage.push(m.inputTokens + ' input');
+      |      if (m.outputTokens) usage.push(m.outputTokens + ' output');
+      |      if (Number(m.estimatedCostUsd) > 0) usage.push(money(m.estimatedCostUsd));
+      |      usage = usage.join(' · ');
+      |      var marker = rejected
+      |        ? '<span class="flex h-4 w-4 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold text-red-300">×</span>'
+      |        : '<span class="h-3 w-3 rounded-full piece-' + (jev ? 'jev' : 'llm') + '"></span>';
+      |      var location = rejected
+      |        ? 'Rejected' + (m.column == null ? ' · no column returned' : ' · attempted column ' + m.column)
+      |        : 'Column ' + m.column + ' · row ' + m.row;
+      |      var badge = rejected ? '<span class="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-300">Rejected</span>' : '';
+      |      return '<li class="rounded-xl border ' + (rejected ? 'border-red-500/25 bg-red-950/15' : 'border-white/5 bg-black/15') + ' p-3">' +
+      |        '<div class="flex items-center justify-between gap-2"><div class="flex items-center gap-2">' + marker + '<strong class="text-sm">' + esc(m.player) + '</strong><span class="text-xs text-slate-600">#' + m.turn + '</span>' + badge + '</div><span class="font-mono text-sm font-bold text-' + color + '-300">' + seconds(m.durationMs) + '</span></div>' +
+      |        '<p class="mt-1 text-xs ' + (rejected ? 'text-red-300' : 'text-slate-400') + '">' + esc(location) + '</p><p class="mt-1 line-clamp-3 text-xs text-slate-500">' + esc(m.note) + '</p><div class="mt-1 text-[10px] text-slate-600">' + usage + '</div>' +
+      |        '<button type="button" data-move-turn="' + m.turn + '" class="mt-2 text-[10px] font-semibold text-indigo-300 hover:text-indigo-200">Request / response</button></li>';
       |    }).join('');
       |
       |    var connection = document.getElementById('connection');
@@ -101,31 +114,123 @@ object UIAssets:
       |    tick();
       |  }
       |
-      |  async function poll() {
-      |    if (!game) return;
-      |    try {
-      |      var response = await fetch('/api/games/' + encodeURIComponent(game.id), {cache:'no-store'});
-      |      if (!response.ok) throw new Error('Could not load game state');
-      |      game = await response.json(); render(game);
-      |      if (terminal(game.status)) { clearInterval(timer); timer = null; }
-      |    } catch (e) { showError(e.message); }
+      |  function closeEvents() {
+      |    if (eventSource) { eventSource.close(); eventSource = null; }
       |  }
+      |
+      |  function connectEvents(gameId) {
+      |    closeEvents();
+      |    var source = new EventSource('/api/games/' + encodeURIComponent(gameId) + '/events');
+      |    eventSource = source;
+      |    function receive(event) {
+      |      try {
+      |        if (eventSource !== source || !game || game.id !== gameId) return;
+      |        var update = JSON.parse(event.data);
+      |        if (update.game.id !== gameId || update.sequence <= lastEventSequence) return;
+      |        lastEventSequence = update.sequence;
+      |        game = update.game;
+      |        render(game);
+      |        if (terminal(game.status)) { source.close(); if (eventSource === source) eventSource = null; }
+      |      } catch (e) { showError('Could not read live game event'); }
+      |    }
+      |    source.addEventListener('turn-start', receive);
+      |    source.addEventListener('turn-end', receive);
+      |    source.onopen = function() { if (eventSource === source) clearError(); };
+      |    source.onerror = function() {
+      |      if (eventSource !== source || !game || game.id !== gameId || terminal(game.status)) return;
+      |      document.getElementById('connection').innerHTML = '<span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span> Reconnecting';
+      |    };
+      |  }
+      |
+      |  function formatJsonValue(value, depth) {
+      |    var indentation = '  '.repeat(depth);
+      |    var childIndentation = '  '.repeat(depth + 1);
+      |    if (Array.isArray(value)) {
+      |      var containsOnlyPrimitives = value.every(function(item) {
+      |        return item === null || typeof item !== 'object';
+      |      });
+      |      if (containsOnlyPrimitives) {
+      |        return '[' + value.map(function(item) { return JSON.stringify(item); }).join(', ') + ']';
+      |      }
+      |      return '[\n' + value.map(function(item) {
+      |        return childIndentation + formatJsonValue(item, depth + 1);
+      |      }).join(',\n') + '\n' + indentation + ']';
+      |    }
+      |    if (value !== null && typeof value === 'object') {
+      |      var keys = Object.keys(value);
+      |      if (keys.length === 0) return '{}';
+      |      return '{\n' + keys.map(function(key) {
+      |        return childIndentation + JSON.stringify(key) + ': ' + formatJsonValue(value[key], depth + 1);
+      |      }).join(',\n') + '\n' + indentation + '}';
+      |    }
+      |    return JSON.stringify(value);
+      |  }
+      |
+      |  function prettyJson(value) {
+      |    try { return formatJsonValue(JSON.parse(value), 0); }
+      |    catch (_) { return value; }
+      |  }
+      |
+      |  function showMoveDetail(elementId, value, fallback, isJev) {
+      |    var element = document.getElementById(elementId);
+      |    var content = value || fallback;
+      |    element.classList.toggle('whitespace-pre', isJev);
+      |    element.classList.toggle('whitespace-pre-wrap', !isJev);
+      |    element.classList.toggle('break-words', !isJev);
+      |    element.textContent = isJev ? prettyJson(content) : content;
+      |  }
+      |
+      |  function closeMoveDetails() {
+      |    var modal = document.getElementById('move-details-modal');
+      |    modal.classList.add('hidden');
+      |    modal.classList.remove('flex');
+      |  }
+      |
+      |  document.getElementById('history').addEventListener('click', function(event) {
+      |    var button = event.target.closest && event.target.closest('[data-move-turn]');
+      |    if (!button || !game) return;
+      |    var turn = Number(button.getAttribute('data-move-turn'));
+      |    var move = game.moves.find(function(candidate) { return candidate.turn === turn; });
+      |    if (!move) return;
+      |    document.getElementById('move-details-title').textContent = move.player + ' · turn ' + move.turn + (move.outcome === 'Rejected' ? ' · rejected' : '');
+      |    var isJev = move.player === 'Jev';
+      |    showMoveDetail('move-details-request', move.requestDetails, 'No request details recorded.', isJev);
+      |    showMoveDetail('move-details-response', move.responseDetails, 'No response details recorded.', isJev);
+      |    var modal = document.getElementById('move-details-modal');
+      |    modal.classList.remove('hidden');
+      |    modal.classList.add('flex');
+      |  });
+      |  document.getElementById('move-details-close').addEventListener('click', closeMoveDetails);
+      |  document.getElementById('move-details-modal').addEventListener('click', function(event) {
+      |    if (event.target === event.currentTarget) closeMoveDetails();
+      |  });
+      |  document.addEventListener('keydown', function(event) {
+      |    if (event.key === 'Escape') closeMoveDetails();
+      |  });
       |
       |  form.addEventListener('submit', async function(event) {
       |    event.preventDefault(); clearError();
-      |    if (timer) clearInterval(timer);
+      |    closeEvents();
       |    previousMoveCount = 0;
+      |    lastEventSequence = 0;
       |    document.getElementById('start').disabled = true;
       |    try {
       |      var response = await fetch('/api/games', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({modelId:model.value, firstPlayer:document.getElementById('first-player').value})});
       |      var payload = await response.json();
       |      if (!response.ok) throw new Error(payload.error || 'Could not start game');
-      |      game = payload; render(game); timer = setInterval(poll, 350); poll();
+      |      game = payload; render(game); connectEvents(game.id);
       |    } catch (e) { document.getElementById('start').disabled = false; showError(e.message); }
       |  });
       |  document.getElementById('cancel').addEventListener('click', async function() {
       |    if (!game) return;
-      |    await fetch('/api/games/' + encodeURIComponent(game.id) + '/cancel', {method:'POST'}); poll();
+      |    var cancel = document.getElementById('cancel');
+      |    cancel.disabled = true;
+      |    try {
+      |      var response = await fetch('/api/games/' + encodeURIComponent(game.id) + '/cancel', {method:'POST'});
+      |      if (!response.ok) throw new Error('Could not cancel game');
+      |      game = await response.json(); render(game); if (terminal(game.status)) closeEvents();
+      |    } catch (e) { showError(e.message); }
+      |    finally { cancel.disabled = false; }
       |  });
       |  emptyBoard();
       |})();

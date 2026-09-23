@@ -1,21 +1,22 @@
 enablePlugins(JavaAppPackaging)
 
-scalaVersion := "3.9.0"
-
-
-Compile / mainClass := Some("Main")
 name := "jev-llm-connect-four"
 
+scalaVersion := "3.9.0"
+
 libraryDependencies ++= Seq(
-  "com.jamesward" %% "zio-bedrock-converse" % "0.1.1",
-  "com.jamesward" %% "zio-typesafe-ai" % "0.0.2",
-  "dev.zio" %% "zio-http" % "3.11.6",
+  "com.jamesward" %% "zio-bedrock" % "0.1.0",
+  "com.jamesward" %% "zio-typesafe-ai" % "0.1.0",
+
   "org.webjars.npm" % "tailwindcss__browser" % "4.3.3" % WebJar,
-  "dev.zio" %% "zio-test" % "2.1.26" % Test,
-  "dev.zio" %% "zio-test-sbt" % "2.1.26" % Test,
+
+  "dev.zio" %% "zio-test" % ("dev.zio" %% "zio").version % Test,
+  "dev.zio" %% "zio-test-sbt" % ("dev.zio" %% "zio").version % Test,
 )
 
 fork := true
+
+Compile / mainClass := Some("Main")
 
 // Local-only development MCP server. It remains loopback-bound and the plugin
 // automatically disables it in CI. `sbt-task` can execute arbitrary sbt tasks.
