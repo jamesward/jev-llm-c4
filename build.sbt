@@ -28,4 +28,4 @@ addCommandAlias("dev", "~runReload")
 
 // Agent Skills are extracted for coding agents and stay off the application classpath.
 skillsJarsOutputDir := Some(file(".kiro/skills"))
-libraryDependencies += "com.jamesward" % "skills" % "0.0.3" % Skills
+libraryDependencies += "com.jamesward" % "skills" % "0.0.10" % Skills

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sbt-mcp-jev-llm-connect-four": {
+      "type": "http",
+      "url": "http://127.0.0.1:5014/",
+      "timeout": 1800000,
+      "disabled": false
+    }
+  }
+}
