@@ -4,7 +4,7 @@ object ConnectFour:
   val Columns = 7
   val Rows = 6
 
-  enum Player derives JsonCodec:
+  enum Player derives JsonCodec, CanEqual:
     case Jev, Llm
 
     def opponent: Player = this match
@@ -97,7 +97,7 @@ object ConnectFour:
   object Board:
     val empty: Board = Board(Vector.fill(Rows, Columns)(Option.empty[Player]))
 
-  enum GameStatus derives JsonCodec:
+  enum GameStatus derives JsonCodec, CanEqual:
     case Thinking, Won, Draw, Failed, Cancelled
 
   enum MoveOutcome derives JsonCodec:

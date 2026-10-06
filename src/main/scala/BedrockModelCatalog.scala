@@ -6,11 +6,11 @@ object BedrockModelCatalog:
   val PricingVerifiedOn = "2026-09-22"
   val RegionCode = "us-east-1"
 
-  enum Backend(val label: String):
+  enum Backend(val label: String) derives CanEqual:
     case Converse extends Backend("Converse")
     case Mantle extends Backend("Mantle")
 
-  enum StructuredOutput:
+  enum StructuredOutput derives CanEqual:
     case Native
     case Unsupported
 
