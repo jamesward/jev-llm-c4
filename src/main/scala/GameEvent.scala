@@ -3,7 +3,7 @@ import zio.*
 import zio.json.*
 import zio.stream.*
 
-enum GameEventType derives JsonCodec:
+enum GameEventType derives JsonCodec, CanEqual:
   case TurnStart, TurnEnd
 
   def sseName: String = this match
