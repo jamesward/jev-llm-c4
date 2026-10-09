@@ -20,9 +20,9 @@ Compile / mainClass := Some("Main")
 
 // Local-only development MCP server. It remains loopback-bound and the plugin
 // automatically disables it in CI. `sbt-task` can execute arbitrary sbt tasks.
-Global / mcpEnabled := true
-Global / mcpHost := "127.0.0.1"
-Global / mcpPort := 5014
+ThisBuild / mcpEnabled := true
+ThisBuild / mcpHost := "127.0.0.1"
+ThisBuild / mcpPort := 5014
 
 addCommandAlias("dev", "~runReload")
 
