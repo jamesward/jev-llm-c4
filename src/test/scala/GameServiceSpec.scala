@@ -235,8 +235,12 @@ object GameServiceSpec extends ZIOSpecDefault:
         release <- Promise.make[Nothing, Unit]
         chooser = new MoveChooser:
           def choose(player: Player, board: Board, modelId: String): Task[MoveChooser.Selection] =
-            enteredCount.updateAndGet(_ + 1).flatMap(count => allEntered.succeed(()).when(count == 4)) *>
-              ZIO.uninterruptible(release.await) *>
+            // Count entries inside the uninterruptible region so that, once all four have
+            // entered, none can be interrupted before blocking on `release`.
+            ZIO.uninterruptible(
+              enteredCount.updateAndGet(_ + 1).flatMap(count => allEntered.succeed(()).when(count == 4)) *>
+                release.await
+            ) *>
               ZIO.succeed(MoveChooser.Selection(0, "released"))
         result <- withService(chooser):
           for
