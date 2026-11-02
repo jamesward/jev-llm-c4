@@ -6,7 +6,7 @@ scalaVersion := "3.10.0"
 
 libraryDependencies ++= Seq(
   "com.jamesward" %% "zio-bedrock" % "0.1.0",
-  "com.jamesward" %% "zio-typesafe-ai" % "0.1.0",
+  "com.jamesward" %% "zio-decisions" % "0.2.0",
 
   "org.webjars.npm" % "tailwindcss__browser" % "4.3.3" % WebJar,
 
@@ -31,3 +31,8 @@ scalacOptions ++= Seq(
 scalacOptions += "-language:strictEquality"
 // Test sources compare many library types (Either, Chunk, Duration) without CanEqual evidence.
 Test / scalacOptions -= "-language:strictEquality"
+
+// sbt-dotenv: the forked test JVM gets `.env`'s variables (TYPESAFE_API_KEY), so the live
+// integration specs run locally; `.env` is gitignored.
+Test / envFileName := ".env"
+Test / envVars := (Test / envFromFile).value

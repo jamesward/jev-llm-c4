@@ -1,6 +1,7 @@
 import com.jamesward.zio_bedrock.{Bedrock, Converse, ConverseConfig, Mantle, MantleConfig}
 import com.jamesward.zio_bedrock.Bedrock.{ApiKey, InferenceConfig, Message, ModelId, Region, RequestConfig}
-import com.jamesward.zio_typesafe_ai.TypeSafeAI
+import com.jamesward.zio_decisions.Decisions
+import com.jamesward.zio_decisions.typesafe.TypeSafe
 import ConnectFour.*
 import zio.*
 import zio.http.{Client as HttpClient, URL}
@@ -81,11 +82,11 @@ object MoveChooser:
         requestDetails = JevMoveRequest.requestDetails(data)
         _ <- ZIO.logInfo(jevRequestLog(requestDetails))
         criteria <- ZIO.fromEither(JevMoveRequest.criteria(data)).mapError(IllegalArgumentException(_))
-        result <- TypeSafeAI.ask(
+        result <- Decisions.ask(
           data.state,
-          (move = TypeSafeAI.Question.Choice(data.instructions, criteria)),
+          (move = Decisions.Question.Choice(data.instructions, criteria)),
         ).run.provideLayer(
-          ZLayer.succeed(httpClient) >>> TypeSafeAI.Client.layer(TypeSafeAI.ApiKey(apiKey))
+          ZLayer.succeed(httpClient) >>> TypeSafe.layer(TypeSafe.ApiKey(apiKey))
         ).tapError: error =>
           ZIO.logError(s"Jev request failed question=${JevMoveRequest.QuestionId}: ${error.getMessage}")
         .mapError(error => JevTurnFailure(

@@ -1,4 +1,4 @@
-import com.jamesward.zio_typesafe_ai.TypeSafeAI
+import com.jamesward.zio_decisions.Decisions
 import ConnectFour.*
 import zio.test.*
 
@@ -67,7 +67,7 @@ object MoveCandidateBoardsSpec extends ZIOSpecDefault:
     },
     test("Choice criteria contain the exact ASCII candidate descriptions") {
       val candidates = MoveCandidateBoards.from(Board.empty, Player.Jev)
-      val criteria = TypeSafeAI.ChoiceCriteria(
+      val criteria = Decisions.ChoiceCriteria(
         candidates.map(candidate => candidate.choiceId -> candidate.description)*
       ).toOption.get
       assertTrue(

@@ -5,3 +5,4 @@
 /project/project/
 /.kiro/skills/
 /.kiro/settings/lsp.json
+.env

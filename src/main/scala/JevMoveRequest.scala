@@ -1,4 +1,5 @@
-import com.jamesward.zio_typesafe_ai.TypeSafeAI
+import com.jamesward.zio_decisions.Decisions
+import com.jamesward.zio_decisions.typesafe.TypeSafe
 import zio.json.*
 import zio.json.ast.Json
 
@@ -27,7 +28,7 @@ object JevMoveRequest:
   def requestDetails(data: MoveRequest.Data): RequestDetails =
     RequestDetails(
       state = data.state,
-      model = TypeSafeAI.ModelId.JevLatest.unwrap,
+      model = TypeSafe.JevLatest.unwrap,
       questions = Map(
         QuestionId -> ChoiceQuestion(
           `type` = "choice",
@@ -37,10 +38,10 @@ object JevMoveRequest:
       ),
     )
 
-  def criteria(data: MoveRequest.Data): Either[String, TypeSafeAI.ChoiceCriteria] =
-    TypeSafeAI.ChoiceCriteria.fromContent(VectorMap.from(
-      data.choices.map(choice => choice -> (null: TypeSafeAI.Content | Null))
+  def criteria(data: MoveRequest.Data): Either[String, Decisions.ChoiceCriteria] =
+    Decisions.ChoiceCriteria.fromContent(VectorMap.from(
+      data.choices.map(choice => choice -> (null: Decisions.Content | Null))
     ))
 
-  def responseDetails(answer: TypeSafeAI.ChoiceAnswer): ResponseDetails =
+  def responseDetails(answer: Decisions.ChoiceAnswer): ResponseDetails =
     ResponseDetails(answer.choice, answer.confidence.unwrap)

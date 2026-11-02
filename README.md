@@ -42,28 +42,26 @@ its final structured response. A Connect Four game has at most 42 turns. Active 
 also bounded. Provider credentials never appear in responses or recorded
 request details.
 
-### Test local library changes
+### Live tests
 
-With `zio-typesafe-ai` and/or `zio-bedrock` checked out next to this project, pass `-Dlocal` to use each available sibling root project instead of its published artifact:
+The live Jev and Bedrock specs run only when `TYPESAFE_API_KEY` / `AWS_BEARER_TOKEN_BEDROCK` are set. Besides the environment, tests read them from a gitignored `.env` file (sbt-dotenv passes it to the forked test JVM):
 
 ```bash
-./sbta -Dlocal test
+./sbta test
 ```
-
-Without `-Dlocal`, or when a sibling checkout does not exist, the build independently uses that library's published dependency.
 
 ### Run Jev prompt experiments
 
 The live experiment matrix compares alternative state, instruction, criteria, candidate-board, and decomposed-question formulations against known win/block positions. It is skipped during normal tests and requires an explicit gate:
 
 ```bash
-./sbta -Dlocal 'set Test / envVars += ("RUN_JEV_PROMPT_EXPERIMENTS" -> "1"); testOnly JevPromptExperimentSpec'
+./sbta 'set Test / envVars += ("RUN_JEV_PROMPT_EXPERIMENTS" -> "1"); testOnly JevPromptExperimentSpec'
 ```
 
 Experiment failures are measurements: each failed test reports the expected and selected columns, while `JEV_PROMPT_EXPERIMENT` log lines include confidence and decomposition traces. To run selected variants only:
 
 ```bash
-./sbta -Dlocal 'set Test / envVars ++= Map("RUN_JEV_PROMPT_EXPERIMENTS" -> "1", "JEV_PROMPT_VARIANTS" -> "production-structured,decomposed-parallel-questions"); testOnly JevPromptExperimentSpec'
+./sbta 'set Test / envVars ++= Map("RUN_JEV_PROMPT_EXPERIMENTS" -> "1", "JEV_PROMPT_VARIANTS" -> "production-structured,decomposed-parallel-questions"); testOnly JevPromptExperimentSpec'
 ```
 
 Available variant names are defined in `JevPromptExperimentSpec.scala`. Diagnostic tracks include `state-transition-probes`, `intent-routed-fan-out`, `confidence-gated-intent-routing`, and `candidate-composite-scoring`; their traces expose intermediate state recognition, intent, specialist choices, confidence, and weighted candidate dimensions. Representation tracks include true 2D matrix state, 2D post-move candidate matrices, row-labeled ASCII, and generic ASCII winning-shape examples. Defense tracks include committed prose without option facts, verbose structured/string guidance, exhaustive simulation instructions, and verbose guidance with ASCII candidates. Production intentionally uses the smallest shared protocol: six compact top-to-bottom rows, two general Connect Four rules, one goal, and the same playable `column_N` options for both providers. Jev receives those options as one TypeSafe `Choice`; Bedrock receives the same state, prose, and options as its user message with native structured output. The more tactical protocols remain experiments rather than production behavior. Use `JEV_PROMPT_SCENARIOS` as another comma-separated filter when only selected boards should run.
@@ -73,7 +71,7 @@ Available variant names are defined in `JevPromptExperimentSpec.scala`. Diagnost
 The understanding suite asks 78 independent questions per board to measure cell reading, legal moves, gravity, one-step wins for both players, opponent replies after each candidate, and tactical intent. It is also skipped unless explicitly enabled:
 
 ```bash
-./sbta -Dlocal 'set Test / envVars += ("RUN_JEV_UNDERSTANDING_DIAGNOSTICS" -> "1"); testOnly JevUnderstandingDiagnosticSpec'
+./sbta 'set Test / envVars += ("RUN_JEV_UNDERSTANDING_DIAGNOSTICS" -> "1"); testOnly JevUnderstandingDiagnosticSpec'
 ```
 
 Use `JEV_DIAGNOSTIC_SCENARIOS` to select comma-separated boards. `JEV_UNDERSTANDING` logs category totals, while `JEV_UNDERSTANDING_MISMATCH` logs every expected/actual mismatch with its raw probability or confidence.

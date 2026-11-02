@@ -1,4 +1,5 @@
-import com.jamesward.zio_typesafe_ai.TypeSafeAI
+import com.jamesward.zio_decisions.Decisions
+import com.jamesward.zio_decisions.typesafe.TypeSafe
 import ConnectFour.*
 import zio.*
 import zio.http.{Client as HttpClient}
@@ -332,31 +333,31 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
   private val columnIds =
     Vector.tabulate(ConnectFour.Columns)(column => s"column_$column")
 
-  private def allColumnsCriteria: TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def allColumnsCriteria: Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       columnIds.map(_ -> (null: String | Null))*
     ).toOption.get
 
-  private def columnsOrNoneCriteria: TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def columnsOrNoneCriteria: Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       (columnIds.map(_ -> (null: String | Null)) :+ ("none" -> (null: String | Null)))*
     ).toOption.get
 
-  private def describedColumnsCriteria: TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def describedColumnsCriteria: Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       columnIds.zipWithIndex.map: (id, column) =>
         id -> s"Drop J into zero-based column $column"
       *
     ).toOption.get
 
-  private def asciiCandidateBoardCriteria(board: Board): TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def asciiCandidateBoardCriteria(board: Board): Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       MoveCandidateBoards.from(board, Player.Jev)
         .map(candidate => candidate.choiceId -> candidate.description)*
     ).toOption.get
 
-  private def asciiCandidateChecklistCriteria(board: Board): TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def asciiCandidateChecklistCriteria(board: Board): Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       MoveCandidateBoards.from(board, Player.Jev).map: candidate =>
         candidate.choiceId ->
           s"""${candidate.description}
@@ -367,28 +368,28 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
       *
     ).toOption.get
 
-  private def asciiCandidateWithRepliesCriteria(board: Board): TypeSafeAI.ChoiceCriteria =
-    TypeSafeAI.ChoiceCriteria(
+  private def asciiCandidateWithRepliesCriteria(board: Board): Decisions.ChoiceCriteria =
+    Decisions.ChoiceCriteria(
       MoveCandidateBoards.withOpponentReplies(board, Player.Jev)
         .map(candidate => candidate.choiceId -> candidate.description)*
     ).toOption.get
 
-  private def matrixCandidateBoardCriteria(board: Board): TypeSafeAI.ChoiceCriteria =
+  private def matrixCandidateBoardCriteria(board: Board): Decisions.ChoiceCriteria =
     val options = VectorMap.from((0 until ConnectFour.Columns).map: column =>
       val resultingRows = board.play(column, Player.Jev).toOption
         .map(_._1.symbolRows)
         .getOrElse(Vector(Vector("column is full")))
-      s"column_$column" -> (TypeSafeAI.Content(MatrixCandidateDescription(
+      s"column_$column" -> (Decisions.Content(MatrixCandidateDescription(
         action = s"Drop J into zero-based column $column",
         resultingBoardRowsTopToBottom = resultingRows,
-      )): TypeSafeAI.Content | Null)
+      )): Decisions.Content | Null)
     )
-    TypeSafeAI.ChoiceCriteria.fromContent(options).toOption.get
+    Decisions.ChoiceCriteria.fromContent(options).toOption.get
 
   private def materializedWinningBoardCriteria(
     board: Board,
     player: Player,
-  ): TypeSafeAI.ChoiceCriteria =
+  ): Decisions.ChoiceCriteria =
     val piece = player match
       case Player.Jev => "J"
       case Player.Llm => "L"
@@ -396,20 +397,20 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
       val resultingRows = board.play(column, player).toOption
         .map(_._1.symbolRows.map(_.mkString))
         .getOrElse(Vector("column is full"))
-      s"column_$column" -> (TypeSafeAI.Content(CandidateDescription(
+      s"column_$column" -> (Decisions.Content(CandidateDescription(
         action = s"Drop $piece into zero-based column $column",
         resultingBoardRowsTopToBottom = resultingRows,
-      )): TypeSafeAI.Content | Null)
-    TypeSafeAI.ChoiceCriteria.fromContent(VectorMap.from(
-      options :+ ("none" -> (TypeSafeAI.Content(
+      )): Decisions.Content | Null)
+    Decisions.ChoiceCriteria.fromContent(VectorMap.from(
+      options :+ ("none" -> (Decisions.Content(
         s"None of the supplied post-drop boards contains four adjacent $piece pieces"
-      ): TypeSafeAI.Content | Null))
+      ): Decisions.Content | Null))
     )).toOption.get
 
   private def materializedDiagonalWindowCriteria(
     board: Board,
     player: Player,
-  ): TypeSafeAI.ChoiceCriteria =
+  ): Decisions.ChoiceCriteria =
     val piece = player match
       case Player.Jev => "J"
       case Player.Llm => "L"
@@ -440,74 +441,74 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
             risingDiagonalWindows = Vector.empty,
             fallingDiagonalWindows = Vector.empty,
           )
-      s"column_$column" -> (TypeSafeAI.Content(description): TypeSafeAI.Content | Null)
-    TypeSafeAI.ChoiceCriteria.fromContent(VectorMap.from(
-      options :+ ("none" -> (TypeSafeAI.Content(
+      s"column_$column" -> (Decisions.Content(description): Decisions.Content | Null)
+    Decisions.ChoiceCriteria.fromContent(VectorMap.from(
+      options :+ ("none" -> (Decisions.Content(
         s"No supplied four-cell diagonal window is exactly $piece $piece $piece $piece"
-      ): TypeSafeAI.Content | Null))
+      ): Decisions.Content | Null))
     )).toOption.get
 
-  private def candidateBoardCriteria(board: Board): TypeSafeAI.ChoiceCriteria =
+  private def candidateBoardCriteria(board: Board): Decisions.ChoiceCriteria =
     val options = VectorMap.from(columnIds.zipWithIndex.map: (id, column) =>
       val resultingRows = board.play(column, Player.Jev).toOption
         .map(_._1.symbolRows.map(_.mkString))
         .getOrElse(Vector("column is full"))
-      id -> (TypeSafeAI.Content(CandidateDescription(
+      id -> (Decisions.Content(CandidateDescription(
         action = s"Drop J into zero-based column $column",
         resultingBoardRowsTopToBottom = resultingRows,
-      )): TypeSafeAI.Content | Null)
+      )): Decisions.Content | Null)
     )
-    TypeSafeAI.ChoiceCriteria.fromContent(options).toOption.get
+    Decisions.ChoiceCriteria.fromContent(options).toOption.get
 
   private def request[S: Schema](
     state: S,
-    questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])],
+    questions: List[(Decisions.QuestionId, Decisions.Question[?])],
     httpClient: HttpClient,
     apiKey: String,
-  ): Task[Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer]] =
+  ): Task[Map[Decisions.QuestionId, Decisions.DynamicAnswer]] =
     for
-      request <- ZIO.fromEither(TypeSafeAI.askDynamic(state, questions))
+      request <- ZIO.fromEither(Decisions.askDynamic(state, questions))
         .mapError(IllegalArgumentException(_))
       result <- request.run.provideLayer(
-        ZLayer.succeed(httpClient) >>> TypeSafeAI.Client.layer(TypeSafeAI.ApiKey(apiKey))
+        ZLayer.succeed(httpClient) >>> TypeSafe.layer(TypeSafe.ApiKey(apiKey))
       )
     yield result.answers
 
   private def choice(
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
     id: String,
-  ): Task[TypeSafeAI.ChoiceAnswer] =
-    ZIO.fromOption(answers.get(TypeSafeAI.QuestionId(id)))
+  ): Task[Decisions.ChoiceAnswer] =
+    ZIO.fromOption(answers.get(Decisions.QuestionId(id)))
       .orElseFail(IllegalStateException(s"Jev did not return $id"))
       .flatMap:
-        case TypeSafeAI.DynamicAnswer.Choice(value) => ZIO.succeed(value)
+        case Decisions.DynamicAnswer.Choice(value) => ZIO.succeed(value)
         case other => ZIO.fail(IllegalStateException(s"Unexpected Jev answer for $id: $other"))
 
-  private def column(answer: TypeSafeAI.ChoiceAnswer): Task[Int] =
+  private def column(answer: Decisions.ChoiceAnswer): Task[Int] =
     ZIO.fromOption(answer.choice.stripPrefix("column_").toIntOption)
       .orElseFail(IllegalStateException(s"Invalid column choice ${answer.choice}"))
 
   private def noul(
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
     id: String,
   ): Task[Double] =
-    ZIO.fromOption(answers.get(TypeSafeAI.QuestionId(id)))
+    ZIO.fromOption(answers.get(Decisions.QuestionId(id)))
       .orElseFail(IllegalStateException(s"Jev did not return $id"))
       .flatMap:
-        case TypeSafeAI.DynamicAnswer.Noul(value) => ZIO.succeed(value.unwrap)
+        case Decisions.DynamicAnswer.Noul(value) => ZIO.succeed(value.unwrap)
         case other => ZIO.fail(IllegalStateException(s"Unexpected Jev answer for $id: $other"))
 
   private def ask[S: Schema, I: Schema](
     state: S,
     instructions: I,
-    criteria: TypeSafeAI.ChoiceCriteria,
+    criteria: Decisions.ChoiceCriteria,
     httpClient: HttpClient,
     apiKey: String,
   ): Task[Decision] =
     for
       answers <- request(
         state,
-        List(TypeSafeAI.QuestionId("move") -> TypeSafeAI.Question.Choice(instructions, criteria)),
+        List(Decisions.QuestionId("move") -> Decisions.Question.Choice(instructions, criteria)),
         httpClient,
         apiKey,
       )
@@ -518,16 +519,16 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
   private def decomposed(board: Board, httpClient: HttpClient, apiKey: String): Task[Decision] =
     val data = MoveRequest.from(board, Player.Jev)
     val tacticalCriteria = columnsOrNoneCriteria
-    val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] = List(
-      TypeSafeAI.QuestionId("winning_move") -> TypeSafeAI.Question.Choice(
+    val questions: List[(Decisions.QuestionId, Decisions.Question[?])] = List(
+      Decisions.QuestionId("winning_move") -> Decisions.Question.Choice(
         "Which playable column makes J form four adjacent J pieces on this move? Choose none if no column does.",
         tacticalCriteria,
       ),
-      TypeSafeAI.QuestionId("opponent_winning_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("opponent_winning_move") -> Decisions.Question.Choice(
         "If L moved now, which playable column would make L form four adjacent L pieces? Choose none if no column does.",
         tacticalCriteria,
       ),
-      TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
         conciseInstructions,
         allColumnsCriteria,
       ),
@@ -550,16 +551,16 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
     httpClient: HttpClient,
     apiKey: String,
   ): Task[Decision] =
-    val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] = List(
-      TypeSafeAI.QuestionId("materialized_j_win") -> TypeSafeAI.Question.Choice(
+    val questions: List[(Decisions.QuestionId, Decisions.Question[?])] = List(
+      Decisions.QuestionId("materialized_j_win") -> Decisions.Question.Choice(
         "Inspect every supplied post-drop board exactly as shown. Which board contains four adjacent J pieces horizontally, vertically, or diagonally? Choose none only if no supplied board does.",
         materializedWinningBoardCriteria(board, Player.Jev),
       ),
-      TypeSafeAI.QuestionId("materialized_l_win") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("materialized_l_win") -> Decisions.Question.Choice(
         "Inspect every supplied post-drop board exactly as shown. Which board contains four adjacent L pieces horizontally, vertically, or diagonally? Choose none only if no supplied board does.",
         materializedWinningBoardCriteria(board, Player.Llm),
       ),
-      TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
         labeledAsciiInstructions,
         allColumnsCriteria,
       ),
@@ -587,24 +588,24 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
   ): Task[Decision] =
     val diagonalDefinition =
       "Rows increase from top to bottom. Four diagonal cells have consecutive columns and row indexes that change by exactly +1 or -1 at every step; there are no gaps."
-    val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] = List(
-      TypeSafeAI.QuestionId("materialized_j_win") -> TypeSafeAI.Question.Choice(
+    val questions: List[(Decisions.QuestionId, Decisions.Question[?])] = List(
+      Decisions.QuestionId("materialized_j_win") -> Decisions.Question.Choice(
         "Inspect every supplied post-drop board exactly as shown. Which board contains four adjacent J pieces horizontally, vertically, or diagonally? Choose none only if no supplied board does.",
         materializedWinningBoardCriteria(board, Player.Jev),
       ),
-      TypeSafeAI.QuestionId("materialized_j_diagonal") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("materialized_j_diagonal") -> Decisions.Question.Choice(
         s"$diagonalDefinition Which choice has a supplied diagonal window exactly equal to J J J J? Choose none if no choice does.",
         materializedDiagonalWindowCriteria(board, Player.Jev),
       ),
-      TypeSafeAI.QuestionId("materialized_l_win") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("materialized_l_win") -> Decisions.Question.Choice(
         "Inspect every supplied post-drop board exactly as shown. Which board contains four adjacent L pieces horizontally, vertically, or diagonally? Choose none only if no supplied board does.",
         materializedWinningBoardCriteria(board, Player.Llm),
       ),
-      TypeSafeAI.QuestionId("materialized_l_diagonal") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("materialized_l_diagonal") -> Decisions.Question.Choice(
         s"$diagonalDefinition Which choice has a supplied diagonal window exactly equal to L L L L? Choose none if no choice does.",
         materializedDiagonalWindowCriteria(board, Player.Llm),
       ),
-      TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
         labeledAsciiInstructions,
         allColumnsCriteria,
       ),
@@ -638,25 +639,25 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
     confidenceGated: Boolean,
   ): Task[Decision] =
     val data = MoveRequest.from(board, Player.Jev)
-    val intentCriteria = TypeSafeAI.ChoiceCriteria(
+    val intentCriteria = Decisions.ChoiceCriteria(
       "win_now" -> "J can form four adjacent J pieces with one drop",
       "block_opponent" -> "J cannot win now and L can form four adjacent L pieces with its next drop",
       "positional_move" -> "Neither player can form four on its next drop",
     ).toOption.get
-    val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] = List(
-      TypeSafeAI.QuestionId("intent") -> TypeSafeAI.Question.Choice(
+    val questions: List[(Decisions.QuestionId, Decisions.Question[?])] = List(
+      Decisions.QuestionId("intent") -> Decisions.Question.Choice(
         "Which tactical situation describes the current board? Apply win_now before block_opponent.",
         intentCriteria,
       ),
-      TypeSafeAI.QuestionId("winning_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("winning_move") -> Decisions.Question.Choice(
         "Which playable column makes J form four adjacent J pieces on this move? Choose none if no column does.",
         columnsOrNoneCriteria,
       ),
-      TypeSafeAI.QuestionId("blocking_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("blocking_move") -> Decisions.Question.Choice(
         "Which playable column would make L form four adjacent L pieces if L moved now? Choose none if no column does.",
         columnsOrNoneCriteria,
       ),
-      TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
         conciseInstructions,
         allColumnsCriteria,
       ),
@@ -695,14 +696,14 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
         .getOrElse(Vector("column is full"))
     val questions = resultBoards.toList.flatMap: (column, rows) =>
       List(
-        TypeSafeAI.QuestionId(s"candidate_wins_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"candidate_wins_$column") -> Decisions.Question.Noul(
           CandidateEvaluation(
             column,
             rows,
             "Does `resultingBoardRowsTopToBottom` contain four adjacent J pieces?",
           )
         ),
-        TypeSafeAI.QuestionId(s"opponent_wins_next_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"opponent_wins_next_$column") -> Decisions.Question.Noul(
           CandidateEvaluation(
             column,
             rows,
@@ -725,22 +726,22 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
 
   private def perColumnNouls(board: Board, httpClient: HttpClient, apiKey: String): Task[Decision] =
     val data = MoveRequest.from(board, Player.Jev)
-    val criteria = TypeSafeAI.NoulCriteria(
+    val criteria = Decisions.NoulCriteria(
       whenTrue = "The hypothetical drop creates four adjacent pieces for the named player",
       whenFalse = "The hypothetical drop does not create four adjacent pieces for the named player",
     )
     val tacticalQuestions = columnIds.indices.toList.flatMap: column =>
       List(
-        TypeSafeAI.QuestionId(s"current_wins_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"current_wins_$column") -> Decisions.Question.Noul(
           s"If J drops one piece into column $column according to gravity, does the resulting board contain four adjacent J pieces?",
           criteria,
         ),
-        TypeSafeAI.QuestionId(s"opponent_wins_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"opponent_wins_$column") -> Decisions.Question.Noul(
           s"If L drops one piece into column $column according to gravity, does the resulting board contain four adjacent L pieces?",
           criteria,
         ),
       )
-    val fallbackQuestion = TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+    val fallbackQuestion = Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
       conciseInstructions,
       allColumnsCriteria,
     )
@@ -767,7 +768,7 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
     httpClient: HttpClient,
     apiKey: String,
   ): Task[Decision] =
-    val criteria = TypeSafeAI.NoulCriteria(
+    val criteria = Decisions.NoulCriteria(
       whenTrue = "The supplied resulting board contains four adjacent pieces for the named player",
       whenFalse = "The supplied resulting board does not contain four adjacent pieces for the named player",
     )
@@ -777,7 +778,7 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
         .getOrElse(Vector("column is full"))
     val tacticalQuestions = columnIds.indices.toList.flatMap: column =>
       List(
-        TypeSafeAI.QuestionId(s"materialized_j_wins_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"materialized_j_wins_$column") -> Decisions.Question.Noul(
           CandidateEvaluation(
             column,
             resultingRows(column, Player.Jev),
@@ -785,7 +786,7 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
           ),
           criteria,
         ),
-        TypeSafeAI.QuestionId(s"materialized_l_wins_$column") -> TypeSafeAI.Question.Noul(
+        Decisions.QuestionId(s"materialized_l_wins_$column") -> Decisions.Question.Noul(
           CandidateEvaluation(
             column,
             resultingRows(column, Player.Llm),
@@ -794,7 +795,7 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
           criteria,
         ),
       )
-    val fallbackQuestion = TypeSafeAI.QuestionId("fallback_move") -> TypeSafeAI.Question.Choice(
+    val fallbackQuestion = Decisions.QuestionId("fallback_move") -> Decisions.Question.Choice(
       labeledAsciiInstructions,
       allColumnsCriteria,
     )
@@ -830,9 +831,9 @@ object JevPromptExperimentSpec extends ZIOSpecDefault:
     val hypotheticalPiece = if scenario.name.startsWith("win-") then "J" else "L"
     val hypotheticalQuestion =
       s"If $hypotheticalPiece drops into column ${scenario.expectedColumn}, does that create four adjacent $hypotheticalPiece pieces?"
-    val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] = List(
-      TypeSafeAI.QuestionId("observed_pattern") -> TypeSafeAI.Question.Noul(observedPatternQuestion),
-      TypeSafeAI.QuestionId("hypothetical_drop_wins") -> TypeSafeAI.Question.Noul(hypotheticalQuestion),
+    val questions: List[(Decisions.QuestionId, Decisions.Question[?])] = List(
+      Decisions.QuestionId("observed_pattern") -> Decisions.Question.Noul(observedPatternQuestion),
+      Decisions.QuestionId("hypothetical_drop_wins") -> Decisions.Question.Noul(hypotheticalQuestion),
     )
     for
       answers <- request(data.state, questions, httpClient, apiKey)

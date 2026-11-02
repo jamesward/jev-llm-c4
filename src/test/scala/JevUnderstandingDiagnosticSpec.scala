@@ -1,4 +1,5 @@
-import com.jamesward.zio_typesafe_ai.TypeSafeAI
+import com.jamesward.zio_decisions.Decisions
+import com.jamesward.zio_decisions.typesafe.TypeSafe
 import ConnectFour.*
 import zio.*
 import zio.http.{Client as HttpClient}
@@ -27,61 +28,61 @@ object JevUnderstandingDiagnosticSpec extends ZIOSpecDefault:
     "intent",
   )
 
-  private val cellCriteria = TypeSafeAI.ChoiceCriteria(
+  private val cellCriteria = Decisions.ChoiceCriteria(
     "J" -> "The cell contains J",
     "L" -> "The cell contains L",
     "empty" -> "The cell contains the emptyCell character",
   ).toOption.get
 
-  private val landingRowCriteria = TypeSafeAI.ChoiceCriteria(
+  private val landingRowCriteria = Decisions.ChoiceCriteria(
     ((0 until ConnectFour.Rows).map(row => s"row_$row" -> (null: String | Null)) :+
       ("none" -> (null: String | Null)))*
   ).toOption.get
 
-  private val intentCriteria = TypeSafeAI.ChoiceCriteria(
+  private val intentCriteria = Decisions.ChoiceCriteria(
     "j_wins_now" -> "J can complete four adjacent J pieces with one legal drop",
     "must_block_l" -> "J cannot win now and L can complete four adjacent L pieces with its next legal drop",
     "no_immediate_tactic" -> "Neither player can complete four with its next legal drop",
   ).toOption.get
 
-  private val questions: List[(TypeSafeAI.QuestionId, TypeSafeAI.Question[?])] =
+  private val questions: List[(Decisions.QuestionId, Decisions.Question[?])] =
     val cells = (for
       row <- 0 until ConnectFour.Rows
       column <- 0 until ConnectFour.Columns
     yield
-      TypeSafeAI.QuestionId(s"cell_${row}_$column") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId(s"cell_${row}_$column") -> Decisions.Question.Choice(
         s"In `boardRowsTopToBottom`, what occupies zero-based row $row and column $column?",
         cellCriteria,
       )
     ).toList
 
     val playable = (0 until ConnectFour.Columns).map: column =>
-      TypeSafeAI.QuestionId(s"playable_$column") -> TypeSafeAI.Question.Noul(
+      Decisions.QuestionId(s"playable_$column") -> Decisions.Question.Noul(
         s"Is column $column playable now? It is playable exactly when character $column of the first row is `emptyCell`."
       )
 
     val landingRows = (0 until ConnectFour.Columns).map: column =>
-      TypeSafeAI.QuestionId(s"landing_$column") -> TypeSafeAI.Question.Choice(
+      Decisions.QuestionId(s"landing_$column") -> Decisions.Question.Choice(
         s"Rows are indexed 0 at the top through 5 at the bottom. If J is dropped into column $column, it occupies the empty cell with the greatest row index. Which row receives it? Choose none if the column is full.",
         landingRowCriteria,
       )
 
     val ownWins = (0 until ConnectFour.Columns).map: column =>
-      TypeSafeAI.QuestionId(s"j_wins_$column") -> TypeSafeAI.Question.Noul(
+      Decisions.QuestionId(s"j_wins_$column") -> Decisions.Question.Noul(
         s"A legal drop occupies the empty cell with the greatest row index in its column. If J is dropped into column $column, does the resulting board contain four adjacent J pieces horizontally, vertically, or diagonally?"
       )
 
     val opponentWins = (0 until ConnectFour.Columns).map: column =>
-      TypeSafeAI.QuestionId(s"l_wins_$column") -> TypeSafeAI.Question.Noul(
+      Decisions.QuestionId(s"l_wins_$column") -> Decisions.Question.Noul(
         s"A legal drop occupies the empty cell with the greatest row index in its column. If L is dropped into column $column, does the resulting board contain four adjacent L pieces horizontally, vertically, or diagonally?"
       )
 
     val opponentReplies = (0 until ConnectFour.Columns).map: column =>
-      TypeSafeAI.QuestionId(s"l_reply_after_j_$column") -> TypeSafeAI.Question.Noul(
+      Decisions.QuestionId(s"l_reply_after_j_$column") -> Decisions.Question.Noul(
         s"Apply gravity twice: J first occupies the greatest empty row index in column $column, then L may occupy the greatest empty row index in any playable column. Can L complete four adjacent L pieces with that one reply? Answer no if J's drop already wins or column $column is full."
       )
 
-    val intent = TypeSafeAI.QuestionId("intent") -> TypeSafeAI.Question.Choice(
+    val intent = Decisions.QuestionId("intent") -> Decisions.Question.Choice(
       "First check whether one gravity drop lets J make four; otherwise check whether one gravity drop lets L make four. Which immediate tactical condition has priority for J?",
       intentCriteria,
     )
@@ -176,31 +177,31 @@ object JevUnderstandingDiagnosticSpec extends ZIOSpecDefault:
     scenario: Scenario,
     httpClient: HttpClient,
     key: String,
-  ): Task[TypeSafeAI.Result[Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer]]] =
+  ): Task[Decisions.Result[Map[Decisions.QuestionId, Decisions.DynamicAnswer]]] =
     val state = MoveRequest.from(scenario.board, Player.Jev).state
     for
-      request <- ZIO.fromEither(TypeSafeAI.askDynamic(state, questions))
+      request <- ZIO.fromEither(Decisions.askDynamic(state, questions))
         .mapError(IllegalArgumentException(_))
       result <- request.run.provideLayer(
-        ZLayer.succeed(httpClient) >>> TypeSafeAI.Client.layer(TypeSafeAI.ApiKey(key))
+        ZLayer.succeed(httpClient) >>> TypeSafe.layer(TypeSafe.ApiKey(key))
       )
     yield result
 
   private def choiceObservation(
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
     id: String,
   ): Either[String, (String, Double)] =
-    answers.get(TypeSafeAI.QuestionId(id)).toRight(s"missing $id").flatMap:
-      case TypeSafeAI.DynamicAnswer.Choice(answer) =>
+    answers.get(Decisions.QuestionId(id)).toRight(s"missing $id").flatMap:
+      case Decisions.DynamicAnswer.Choice(answer) =>
         Right(answer.choice -> answer.confidence.unwrap)
       case other => Left(s"$id returned $other")
 
   private def noulObservation(
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
     id: String,
   ): Either[String, Double] =
-    answers.get(TypeSafeAI.QuestionId(id)).toRight(s"missing $id").flatMap:
-      case TypeSafeAI.DynamicAnswer.Noul(value) => Right(value.unwrap)
+    answers.get(Decisions.QuestionId(id)).toRight(s"missing $id").flatMap:
+      case Decisions.DynamicAnswer.Noul(value) => Right(value.unwrap)
       case other => Left(s"$id returned $other")
 
   private def sequence(values: Vector[Either[String, Check]]): Either[String, Vector[Check]] =
@@ -215,7 +216,7 @@ object JevUnderstandingDiagnosticSpec extends ZIOSpecDefault:
     category: String,
     id: String,
     expected: String,
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
   ): Either[String, Check] =
     choiceObservation(answers, id).map: (actual, confidence) =>
       Check(category, id, expected, actual, confidence)
@@ -224,7 +225,7 @@ object JevUnderstandingDiagnosticSpec extends ZIOSpecDefault:
     category: String,
     id: String,
     expected: Boolean,
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
   ): Either[String, Check] =
     noulObservation(answers, id).map: probability =>
       Check(category, id, expected.toString, (probability >= 0.5).toString, probability)
@@ -236,7 +237,7 @@ object JevUnderstandingDiagnosticSpec extends ZIOSpecDefault:
 
   private def checks(
     scenario: Scenario,
-    answers: Map[TypeSafeAI.QuestionId, TypeSafeAI.DynamicAnswer],
+    answers: Map[Decisions.QuestionId, Decisions.DynamicAnswer],
   ): Either[String, Vector[Check]] =
     val board = scenario.board
     val cellChecks = (for
