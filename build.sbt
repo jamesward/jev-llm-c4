@@ -5,7 +5,7 @@ name := "jev-llm-connect-four"
 scalaVersion := "3.10.0"
 
 libraryDependencies ++= Seq(
-  "com.jamesward" %% "zio-bedrock" % "0.1.0",
+  "com.jamesward" %% "zio-bedrock" % "0.2.0",
   "com.jamesward" %% "zio-decisions" % "0.2.0",
 
   "org.webjars.npm" % "tailwindcss__browser" % "4.3.4" % WebJar,
