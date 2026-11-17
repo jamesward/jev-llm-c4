@@ -1,6 +1,6 @@
 addSbtPlugin("org.webjars" % "sbt-webjars" % "0.0.8")
 addSbtPlugin("com.jamesward" % "sbt-reload" % "0.0.8")
-addSbtPlugin("com.skillsjars" % "skillsjars-sbt-plugin" % "0.0.9")
+addSbtPlugin("com.skillsjars" % "skillsjars-sbt-plugin" % "0.1.0")
 addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.13.0")
 addSbtPlugin("com.jamesward" % "sbt-tdepver" % "0.0.1")
 addSbtPlugin("nl.gn0s1s" % "sbt-dotenv" % "3.4.0")
